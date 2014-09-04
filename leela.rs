@@ -22,6 +22,33 @@ mod mruby
         fn mrb_define_class(state:*mut mrb_state,name:*const c_char,class:*mut RClass) -> *mut RClass;
     }
 
+    enum MvalType {
+        TypeFalse ,
+        TypeFree,
+        TypeTrue,
+        TypeFixnum,
+        TypeSymbol,
+        TypeUndef,
+        TypeFloat,
+        TypeCptr,
+        TypeObject,
+        TypeClass,
+        TypeModule,
+        TypeIClass,
+        TypeSClass,
+        TypeProc,
+        TypeArray,
+        TypeHash,
+        TypeString,
+        TypeRange,
+        TypeException,
+        TypeFile,
+        TypeEnv,
+        TypeData,
+        TypeFiber,
+        TypeMaxDefine
+    }
+
     pub struct Mrb{
         state:*mut mrb_state
     }
@@ -31,6 +58,7 @@ mod mruby
     }
 
     pub struct Class {
+        mrb : &'r Mrb,
         class :*mut RClass
     }
 
@@ -56,13 +84,13 @@ mod mruby
         pub fn define_class(&self,name:&str,clz:&Class) -> Class {
             let cs = name.to_c_str();
             let c = unsafe { mrb_define_class(self.state,cs.as_ptr(),clz.class) } ;
-            Class{class:c}
+            Class{mrb:self,class:c}
         }
 
         pub fn obj_class(&self) -> Class {
             let s = "Object";
             let c = unsafe { mrb_class_get(self.state,s.to_c_str().as_ptr()) } ;
-            Class{class:c}
+            Class{mrb:self,class:c}
         }
     }
 
@@ -77,3 +105,4 @@ fn main() {
     let c = m.define_class("Hello",o);
     m.close();
 }
+
