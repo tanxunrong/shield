@@ -60,19 +60,20 @@ mod mruby
         }
 
         pub fn obj_class(&self) -> Class {
-            let s = "object";
+            let s = "Object";
             let c = unsafe { mrb_class_get(self.state,s.to_c_str().as_ptr()) } ;
             Class{class:c}
         }
     }
+
 }
 
 fn main() {
-    let mut m = mruby::open();
+    let m = mruby::open();
     let exec = "[1,2,3].each do |i| puts i+1 end";
     m.load_str(exec);
+
     let o = &m.obj_class();
-    m.load_str(exec);
     let c = m.define_class("Hello",o);
     m.close();
 }
