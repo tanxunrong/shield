@@ -57,8 +57,8 @@ mod mruby
         val :*mut mrb_value
     }
 
-    pub struct Class {
-        mrb : &'r Mrb,
+    pub struct Class<'a>{
+        mrb : &'a Mrb,
         class :*mut RClass
     }
 
