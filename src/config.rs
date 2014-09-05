@@ -1,7 +1,6 @@
 
 use std::collections::{HashMap};
 
-
 #[deriving(PartialEq,Eq,Clone,Show)]
 enum PartType {
     DIV = 1, // divide to int
@@ -47,10 +46,3 @@ fn test_conf_init() {
     let mut c = new("pirate");
     c.add_tbl("bag","uid",MOD,10);
 }
-
-fn main() {
-    let mut c = new("pirate");
-    c.add_tbl("bag","uid",MOD,10);
-    println!("conf {}",c);
-}
-

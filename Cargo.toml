@@ -1,0 +1,8 @@
+[package]
+name = "shield"
+version = "0.0.1"
+authors = ["XunRong Tan <tanxrong@gmail.com>"]
+
+[lib]
+name = "proxy"
+path = "src/proxy.rs"

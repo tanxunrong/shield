@@ -25,3 +25,5 @@
 mruby/
 *.swp
 *.swq
+target/
+Cargo.lock
