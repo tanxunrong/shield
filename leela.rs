@@ -96,7 +96,8 @@ mod mruby
 
 }
 
-fn main() {
+#[test]
+fn test_open_class() {
     let m = mruby::open();
     let exec = "[1,2,3].each do |i| puts i+1 end";
     m.load_str(exec);
