@@ -1,22 +1,22 @@
 
-extern crate libc;
-use libc;
+use libc::{c_char};
 
 #[repr(C)]
-struct mrb_state;
+    struct mrb_state;
 #[repr(C)]
-struct mrb_value;
+    struct mrb_value;
 #[repr(C)]
-struct RClass;
+    struct RClass;
 
 #[link(name="m")]
 #[link(name="mruby")]
 extern "C" {
+
     fn mrb_open() -> *mut mrb_state;
-    fn mrb_load_string(state:*mut mrb_state,s:*const libc::c_char) -> mrb_value;
+    fn mrb_load_string(state:*mut mrb_state,s:*const c_char) -> mrb_value;
     fn mrb_close(state:*mut mrb_state);
-    fn mrb_class_get(state:*mut mrb_state,name:*const libc::c_char) -> *mut RClass;
-    fn mrb_define_class(state:*mut mrb_state,name:*const libc::c_char,class:*mut RClass) -> *mut RClass;
+    fn mrb_class_get(state:*mut mrb_state,name:*const c_char) -> *mut RClass;
+    fn mrb_define_class(state:*mut mrb_state,name:*const c_char,class:*mut RClass) -> *mut RClass;
 }
 
 enum MvalType {
@@ -93,7 +93,7 @@ impl Mrb {
 
 #[test]
 fn test_open_class() {
-    let m = mruby::open();
+    let m = open();
     let exec = "[1,2,3].each do |i| puts i+1 end";
     m.load_str(exec);
 
