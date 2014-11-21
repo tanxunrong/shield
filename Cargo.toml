@@ -2,7 +2,6 @@
 name = "shield"
 version = "0.0.1"
 authors = ["XunRong Tan <tanxrong@gmail.com>"]
-build = "make all"
 
 [lib]
 name = "mruby"
