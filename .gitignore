@@ -27,3 +27,4 @@ mruby/
 *.swq
 target/
 Cargo.lock
+libmruby.a
