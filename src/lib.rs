@@ -3,19 +3,20 @@
 //! mruby binding
 #[allow(dead_code)]
 extern crate libc;
+use std::rc::{Rc};
 use std::cell::{RefCell};
 use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass};
 mod mruby;
 
 pub struct Mrb {
-    mrb : RefCell<*mut mrb_state>
+    mrb : Rc<RefCell<*mut mrb_state>>
 }
 
 pub fn new_mrb() -> Mrb {
     let mrb = unsafe {
         mrb_open()
     };
-    Mrb{mrb:RefCell::new(mrb)}
+    Mrb{ mrb:Rc::new(RefCell::new(mrb)) }
 }
 
 pub struct Class {
@@ -25,15 +26,20 @@ pub struct Class {
 
 impl Mrb {
 
-    fn close(&self) {
+    #[inline(always)]
+    fn get_mrb(&self) -> *mut mrb_state {
+        unsafe { *(self.mrb).borrow_mut() } 
+    }
+
+    pub fn close(&self) {
         unsafe {
-            mrb_close(*self.mrb.borrow_mut());
+            mrb_close(self.get_mrb());
         }
         std::mem::drop(self);
     }
 
-    fn get_class(&self,name:&str) -> Option<*mut Struct_RClass> {
-        let mrb = unsafe { **self.mrb.borrow_mut() };
+    pub fn get_class(&self,name:&str) -> Option<*mut Struct_RClass> {
+        let mrb = unsafe { *self.get_mrb() };
         let class = 
             match name {
                 "object" => { mrb.object_class },
@@ -42,7 +48,7 @@ impl Mrb {
                 "array" => { mrb.array_class },
                 "hash" => { mrb.hash_class },
                 _ => {
-                    unsafe { mruby::mrb_class_get(*self.mrb.borrow_mut(),name.as_slice().as_ptr() as *const libc::c_char) }
+                    unsafe { mruby::mrb_class_get(self.get_mrb(),name.as_slice().as_ptr() as *const libc::c_char) }
                 }
             };
         if class.is_null() {
@@ -52,9 +58,9 @@ impl Mrb {
         }
     }
 
-    fn load(&self,code:&str) -> mrb_value {
+    pub fn load(&self,code:&str) -> mrb_value {
         unsafe {
-            mruby::mrb_load_string(*self.mrb.borrow_mut(),code.as_slice().as_ptr() as *const libc::c_char)
+            mruby::mrb_load_string(self.get_mrb(),code.as_slice().as_ptr() as *const libc::c_char)
         }
     }
 
