@@ -8,8 +8,11 @@ use std::cell::{RefCell};
 use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass};
 mod mruby;
 
+pub type MrbState = Rc<RefCell<*mut mrb_state>>;
+pub type MrbClass = Rc<RefCell<*mut Struct_RClass>>;
+
 pub struct Mrb {
-    mrb : Rc<RefCell<*mut mrb_state>>
+    mrb : MrbState
 }
 
 pub fn new_mrb() -> Mrb {
@@ -20,8 +23,9 @@ pub fn new_mrb() -> Mrb {
 }
 
 pub struct Class {
-    clz : *mut Struct_RClass,
-    outer : Option<*mut Struct_RClass>
+    mrb : MrbState,
+    clz : MrbClass,
+    outer : MrbClass
 }
 
 impl Mrb {
@@ -38,7 +42,7 @@ impl Mrb {
         std::mem::drop(self);
     }
 
-    pub fn get_class(&self,name:&str) -> Option<*mut Struct_RClass> {
+    pub fn get_class(&self,name:&str) -> Option<Class> {
         let mrb = unsafe { *self.get_mrb() };
         let class = 
             match name {
@@ -54,7 +58,7 @@ impl Mrb {
         if class.is_null() {
             None
         } else {
-            Some(class)
+            Some(Class{mrb:self.clone(),clz:Rc::new(RefCell::new(class)))
         }
     }
 
@@ -64,6 +68,10 @@ impl Mrb {
         }
     }
 
+    pub fn def_class(&self,clzname:&str,outer:Option<Class>) -> Class {
+        let super_clz = match outer {
+            Some(c) => c,
+            None() => { 
 }
 
 
