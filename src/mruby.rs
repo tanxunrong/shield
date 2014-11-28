@@ -538,23 +538,23 @@ impl fmt::Show for mrb_value {
         else if self.tt == MRB_TT_TRUE {
             return ft.pad("true");
         }
-        else if self.tt == MRB_TT_FLOAT {
-            return self.value.cf().fmt(ft);
-        }
         else if self.tt == MRB_TT_SYMBOL {
             return self.value.csym().fmt(ft);
         }
-        else if self.tt == MRB_TT_OBJECT {
-            return ft.pad("obj");
+        else if self.tt == MRB_TT_UNDEF {
+            return ft.pad("undefined");
         }
-        else if self.tt == MRB_TT_PROC {
-            return ft.pad("proc");
+        else if self.tt == MRB_TT_FLOAT {
+            return self.value.cf().fmt(ft);
         }
         else if self.tt == MRB_TT_CPTR {
             return ft.pad("cptr");
         }
-        else if self.tt == MRB_TT_UNDEF {
-            return ft.pad("undefined");
+        else if self.tt == MRB_TT_PROC {
+            return ft.pad("proc");
+        }
+        else if self.tt == MRB_TT_OBJECT {
+            return ft.pad("obj");
         }
         else {
             return ft.pad("unknown");
