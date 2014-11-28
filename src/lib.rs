@@ -3,32 +3,37 @@
 //! mruby binding
 #[allow(dead_code)]
 extern crate libc;
-use std::rc::{Rc};
+use std::cell::{RefCell};
 use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass};
 mod mruby;
 
 pub struct Mrb {
-    mrb : Rc<*mut mrb_state>
+    mrb : RefCell<*mut mrb_state>
 }
 
 pub fn new_mrb() -> Mrb {
     let mrb = unsafe {
         mrb_open()
     };
-    Mrb{mrb:Rc::new(mrb)}
+    Mrb{mrb:RefCell::new(mrb)}
+}
+
+pub struct Class {
+    clz : *mut Struct_RClass,
+    outer : Option<*mut Struct_RClass>
 }
 
 impl Mrb {
 
     fn close(&self) {
         unsafe {
-            mrb_close(*self.mrb);
+            mrb_close(*self.mrb.borrow_mut());
         }
         std::mem::drop(self);
     }
 
     fn get_class(&self,name:&str) -> Option<*mut Struct_RClass> {
-        let mrb = unsafe { **self.mrb };
+        let mrb = unsafe { **self.mrb.borrow_mut() };
         let class = 
             match name {
                 "object" => { mrb.object_class },
@@ -37,7 +42,7 @@ impl Mrb {
                 "array" => { mrb.array_class },
                 "hash" => { mrb.hash_class },
                 _ => {
-                    unsafe { mruby::mrb_class_get(*self.mrb,name.as_slice().as_ptr() as *const libc::c_char) }
+                    unsafe { mruby::mrb_class_get(*self.mrb.borrow_mut(),name.as_slice().as_ptr() as *const libc::c_char) }
                 }
             };
         if class.is_null() {
@@ -49,7 +54,7 @@ impl Mrb {
 
     fn load(&self,code:&str) -> mrb_value {
         unsafe {
-            mruby::mrb_load_string(*self.mrb,code.as_slice().as_ptr() as *const libc::c_char)
+            mruby::mrb_load_string(*self.mrb.borrow_mut(),code.as_slice().as_ptr() as *const libc::c_char)
         }
     }
 
