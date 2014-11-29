@@ -39,6 +39,15 @@ impl Mrb {
         m
     }
 
+    pub fn close(&self) {
+        if std::rc::is_unique(&self.mrb) {
+            let state = self.get_mrb();
+            unsafe {
+                mrb_close(state);
+            }
+        }
+    }
+
     #[inline(always)]
     fn get_mrb(&self) -> *mut mrb_state {
         *(self.mrb).borrow_mut()
@@ -71,30 +80,37 @@ impl Mrb {
     }
 
 }
-
+/*
 #[unsafe_destructor]
 impl Drop for RefCell<*mut mrb_state> {
     fn drop(&mut self) {
         let mrb = *self.borrow_mut();
-        unsafe {
-            mrb_close(mrb);
+        if !mrb.is_null() {
+            println!("mrb pointer null");
+            unsafe {
+                mrb_close(mrb);
+            }
         }
     }
 }
-
+*/
 #[test]
 fn test_mrb_open() {
     let m = Mrb::new();
+    m.close();
 }
 
 #[test]
 fn test_get_class() {
     let m = Mrb::new();
+    let arr_clz = m.get_class("Array").unwrap();
     assert!(m.get_class("Class").is_some());
     assert!(m.get_class("Object").is_some());
     assert!(m.get_class("Hash").is_some());
-    assert!(m.get_class("Array").is_some());
     assert!(m.get_class("String").is_some());
+    m.close();
+    assert!(m.get_class("String").is_some());
+    assert!(std::rc::strong_count(&arr_clz.mrb) == 2);
 }
 
 #[test]
@@ -102,4 +118,5 @@ fn test_load_str() {
     let m = Mrb::new();
     let mut v = m.load("1..3.each do |i| puts i end");
     assert!(v.is_nil());
+    m.close();
 }
