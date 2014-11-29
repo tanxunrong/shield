@@ -3,6 +3,6 @@ name = "shield"
 version = "0.0.1"
 authors = ["XunRong Tan <tanxrong@gmail.com>"]
 
-[[lib]]
+[lib]
 name = "mruby"
 path = "src/lib.rs"
