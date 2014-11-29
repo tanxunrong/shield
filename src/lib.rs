@@ -17,6 +17,7 @@ pub struct Mrb {
     clzs : RefCell<HashMap<String,MrbClass>>
 }
 
+#[deriving(PartialEq,Clone)]
 pub struct Class {
     mrb : MrbState,
     clz : MrbClass
@@ -59,10 +60,12 @@ impl Mrb {
         if h.get(&clzname).is_some() {
                 return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()})
         }
+        self.load("begin\n");
         let mclz = unsafe { 
             mruby::mrb_class_get(self.get_mrb(), 
-                                 name.as_slice().as_ptr() as *const libc::c_char) 
+                                 name.as_ptr() as *const libc::c_char) 
         };
+        self.load("rescue Exception => boom \n puts boom end \n");
         if mclz.is_null() {
             None
         } else {
@@ -75,10 +78,41 @@ impl Mrb {
     pub fn load(&self,code:&str) -> mrb_value {
         unsafe {
             mruby::mrb_load_string(self.get_mrb(),
-            code.as_slice().as_ptr() as *const libc::c_char)
+            code.as_ptr() as *const libc::c_char)
         }
     }
 
+    pub fn def_class(&self,name:&str,outer:&str) -> Option<Class> {
+        if self.get_class(name).is_some() {
+            panic!("class already have");
+        }
+        match self.get_class(outer) {
+            Some(out_clz) => {
+                let clz = unsafe {
+                    mruby::mrb_define_class(self.get_mrb(),
+                                 name.as_ptr() as *const libc::c_char,
+                                 out_clz.get_clz()
+                                 )
+                };
+                let class = Class{mrb:self.mrb.clone(),clz:Rc::new(RefCell::new(clz))};
+                let mut h = self.clzs.borrow_mut();
+                h.insert(String::from_str(name),class.clz.clone());
+                Some(class)
+            },
+            None => {
+                None
+            }
+        }
+    }
+
+                                 
+}
+
+impl Class {
+    #[inline(always)]
+    fn get_clz(&self) -> *mut Struct_RClass {
+        *(self.clz).borrow_mut()
+    }
 }
 /*
 #[unsafe_destructor]
@@ -94,6 +128,7 @@ impl Drop for RefCell<*mut mrb_state> {
     }
 }
 */
+
 #[test]
 fn test_mrb_open() {
     let m = Mrb::new();
@@ -118,5 +153,13 @@ fn test_load_str() {
     let m = Mrb::new();
     let mut v = m.load("1..3.each do |i| puts i end");
     assert!(v.is_nil());
+    m.close();
+}
+
+#[test]
+fn test_def_class() {
+    let m = Mrb::new();
+    let hello = m.def_class("Hello","Object");
+    assert!(hello.is_some());
     m.close();
 }
