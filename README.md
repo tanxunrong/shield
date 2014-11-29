@@ -1,4 +1,4 @@
 shield
 ======
 
-rust lang study
+mruby binding in rust lang.It's in very alpha state.
