@@ -6,7 +6,7 @@ extern crate libc;
 use std::rc::{Rc};
 use std::cell::{RefCell};
 use std::collections::{HashMap};
-use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass};
+use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass,mrb_int};
 mod mruby;
 
 pub type MrbState = Rc<RefCell<*mut mrb_state>>;
@@ -90,6 +90,7 @@ impl Mrb {
                 mruby::mrb_print_error(state);
                 panic!("fail to setjmp");
             }
+            libc::free(jmp as *mut _);
         }
     }
 
@@ -116,6 +117,16 @@ impl Mrb {
         }
     }
 
+    pub fn call(&self,v:&mrb_value,method:&str) {
+        unsafe {
+            mruby::mrb_funcall(self.get_mrb(),*v,
+                                 method.as_ptr() as *const libc::c_char,0 as mrb_int);
+        }
+    }
+
+    pub fn inspect(&self,v:&mrb_value) {
+        self.call(v,"to_s");
+    }
                                  
 }
 
@@ -123,6 +134,17 @@ impl Class {
     #[inline(always)]
     fn get_clz(&self) -> *mut Struct_RClass {
         *(self.clz).borrow_mut()
+    }
+
+    #[inline(always)]
+    fn get_mrb(&self) -> *mut mrb_state {
+        *(self.mrb).borrow_mut()
+    }
+
+    fn new(&self) -> mrb_value {
+        unsafe {
+            mruby::mrb_obj_new(self.get_mrb(),self.get_clz(),0 as mrb_int,0 as *const _)
+        }
     }
 }
 /*
@@ -159,11 +181,23 @@ fn test_get_class() {
     assert!(std::rc::strong_count(&arr_clz.mrb) == 2);
 }
 
+
+#[test]
+fn test_obj_new() {
+    let m = Mrb::new();
+    let arr_clz = m.get_class("Array").unwrap();
+    let v = arr_clz.new();
+    m.inspect(&v);
+    assert!(v.is_nil());
+    m.close();
+}
+
 #[test]
 fn test_load_str() {
     let m = Mrb::new();
-    let mut v = m.load("1..3.each do |i| puts i end");
+    let mut v = m.load("def inc(a) a+1 end; return inc(2)");
     assert!(v.is_nil());
+    m.call(&v,"to_s");
     m.close();
 }
 
