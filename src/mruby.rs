@@ -364,10 +364,8 @@ pub struct Struct_RException {
 }
 
 pub type jmp_buf = [::libc::c_long, ..8u];
-#[repr(C)]
-pub struct Struct_mrb_jmpbuf {
-    pub _impl: jmp_buf,
-}
+pub type Struct_mrb_jmpbuf = jmp_buf;
+
 #[link(name = "mruby")]
 extern "C" {
 

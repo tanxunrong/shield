@@ -60,12 +60,10 @@ impl Mrb {
         if h.get(&clzname).is_some() {
                 return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()})
         }
-        self.load("begin\n");
         let mclz = unsafe { 
             mruby::mrb_class_get(self.get_mrb(), 
                                  name.as_ptr() as *const libc::c_char) 
         };
-        self.load("rescue Exception => boom \n puts boom end \n");
         if mclz.is_null() {
             None
         } else {
@@ -77,8 +75,21 @@ impl Mrb {
 
     pub fn load(&self,code:&str) -> mrb_value {
         unsafe {
-            mruby::mrb_load_string(self.get_mrb(),
-            code.as_ptr() as *const libc::c_char)
+            let state = self.get_mrb();
+            let mut sjmp = (*state).jmp;
+            if sjmp as uint != 0 {
+                panic!("jmp not null");
+            }
+            let jmp = libc::malloc(std::mem::size_of::<mruby::jmp_buf>() as libc::size_t) as *mut mruby::jmp_buf;
+            if mruby::setjmp(*jmp) as int == 0 {
+                sjmp = jmp;
+                let val = mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char);
+                sjmp = 0 as *mut _;
+                return val;
+            } else {
+                mruby::mrb_print_error(state);
+                panic!("fail to setjmp");
+            }
         }
     }
 
