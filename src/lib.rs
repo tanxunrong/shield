@@ -23,6 +23,39 @@ pub struct Class {
     clz : MrbClass
 }
 
+/// Traits for objects that has access to mrb_state.
+/// Inspired by rust-hl-lua.
+pub trait HasState {
+    fn get_state(&self) -> *mut mrb_state;
+}
+
+impl HasState for Mrb {
+    #[inline(always)]
+    fn get_state(&self) -> *mut mrb_state {
+        *(self.mrb).borrow_mut()
+    }
+}
+
+impl HasState for Class {
+    #[inline(always)]
+    fn get_state(&self) -> *mut mrb_state {
+        *(self.mrb).borrow_mut()
+    }
+}
+
+/// Traits for objects that has access to Struct_RClass.
+/// Inspired by rust-hl-lua.
+pub trait HasClass {
+    fn get_class(&self) -> *mut Struct_RClass;
+}
+
+impl HasClass for Class {
+    #[inline(always)]
+    fn get_class(&self) -> *mut Struct_RClass {
+        *(self.clz).borrow_mut()
+    }
+}
+
 impl Mrb {
 
     pub fn new() -> Mrb {
@@ -42,16 +75,11 @@ impl Mrb {
 
     pub fn close(&self) {
         if std::rc::is_unique(&self.mrb) {
-            let state = self.get_mrb();
+            let state = self.get_state();
             unsafe {
                 mrb_close(state);
             }
         }
-    }
-
-    #[inline(always)]
-    fn get_mrb(&self) -> *mut mrb_state {
-        *(self.mrb).borrow_mut()
     }
 
     pub fn get_class(&self,name:&str) -> Option<Class> {
@@ -61,7 +89,7 @@ impl Mrb {
                 return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()})
         }
         let mclz = unsafe { 
-            mruby::mrb_class_get(self.get_mrb(), 
+            mruby::mrb_class_get(self.get_state(), 
                                  name.as_ptr() as *const libc::c_char) 
         };
         if mclz.is_null() {
@@ -75,7 +103,7 @@ impl Mrb {
 
     pub fn load(&self,code:&str) -> mrb_value {
         unsafe {
-            let state = self.get_mrb();
+            let state = self.get_state();
             let mut sjmp = (*state).jmp;
             if sjmp as uint != 0 {
                 panic!("jmp not null");
@@ -101,9 +129,9 @@ impl Mrb {
         match self.get_class(outer) {
             Some(out_clz) => {
                 let clz = unsafe {
-                    mruby::mrb_define_class(self.get_mrb(),
+                    mruby::mrb_define_class(self.get_state(),
                                  name.as_ptr() as *const libc::c_char,
-                                 out_clz.get_clz()
+                                 out_clz.get_class()
                                  )
                 };
                 let class = Class{mrb:self.mrb.clone(),clz:Rc::new(RefCell::new(clz))};
@@ -119,7 +147,7 @@ impl Mrb {
 
     pub fn call(&self,v:&mrb_value,method:&str) {
         unsafe {
-            mruby::mrb_funcall(self.get_mrb(),*v,
+            mruby::mrb_funcall(self.get_state(),*v,
                                  method.as_ptr() as *const libc::c_char,0 as mrb_int);
         }
     }
@@ -131,19 +159,9 @@ impl Mrb {
 }
 
 impl Class {
-    #[inline(always)]
-    fn get_clz(&self) -> *mut Struct_RClass {
-        *(self.clz).borrow_mut()
-    }
-
-    #[inline(always)]
-    fn get_mrb(&self) -> *mut mrb_state {
-        *(self.mrb).borrow_mut()
-    }
-
     fn new(&self) -> mrb_value {
         unsafe {
-            mruby::mrb_obj_new(self.get_mrb(),self.get_clz(),0 as mrb_int,0 as *const _)
+            mruby::mrb_obj_new(self.get_state(),self.get_class(),0 as mrb_int,0 as *const _)
         }
     }
 }
