@@ -6,7 +6,7 @@ extern crate libc;
 use std::rc::{Rc};
 use std::cell::{RefCell};
 use std::collections::{HashMap};
-use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass,mrb_int};
+use mruby::{mrb_open,mrb_close,mrb_state,mrb_value,Struct_RClass,mrb_int,Struct_mrbc_context};
 mod mruby;
 
 pub type MrbState = Rc<RefCell<*mut mrb_state>>;
@@ -23,6 +23,11 @@ pub struct Class {
     clz : MrbClass
 }
 
+pub struct Context {
+    mrb : MrbState,
+    ctx : *mut Struct_mrbc_context
+}
+
 /// Traits for objects that has access to mrb_state.
 /// Inspired by rust-hl-lua.
 pub trait HasState {
@@ -30,6 +35,13 @@ pub trait HasState {
 }
 
 impl HasState for Mrb {
+    #[inline(always)]
+    fn get_state(&self) -> *mut mrb_state {
+        *(self.mrb).borrow_mut()
+    }
+}
+
+impl HasState for Context {
     #[inline(always)]
     fn get_state(&self) -> *mut mrb_state {
         *(self.mrb).borrow_mut()
@@ -104,21 +116,35 @@ impl Mrb {
     pub fn load(&self,code:&str) -> mrb_value {
         unsafe {
             let state = self.get_state();
-            let mut sjmp = (*state).jmp;
+            mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char)
+
+            /*
+            let state = self.get_state();
+            let sjmp = (*state).jmp;
             if sjmp as uint != 0 {
                 panic!("jmp not null");
             }
             let jmp = libc::malloc(std::mem::size_of::<mruby::jmp_buf>() as libc::size_t) as *mut mruby::jmp_buf;
             if mruby::setjmp(*jmp) as int == 0 {
-                sjmp = jmp;
+                (*state).jmp = jmp;
                 let val = mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char);
-                sjmp = 0 as *mut _;
+                (*state).jmp = 0 as *mut _;
                 return val;
             } else {
                 mruby::mrb_print_error(state);
                 panic!("fail to setjmp");
             }
             libc::free(jmp as *mut _);
+            */
+        }
+    }
+
+    pub fn load_str_ctx(&self,code:&str,ctx:&Context) -> mrb_value {
+        unsafe {
+            let state = self.get_state();
+            mruby::mrb_load_string_cxt(state,
+                                   code.as_ptr() as *const libc::c_char,
+                                   ctx.ctx)
         }
     }
 
@@ -156,6 +182,11 @@ impl Mrb {
         self.call(v,"to_s");
     }
                                  
+    pub fn new_context(&self) -> Context {
+        let ctx = unsafe { mruby::mrbc_context_new(self.get_state()) };
+        Context { mrb:self.mrb.clone(),ctx:ctx }
+    }
+
 }
 
 impl Class {
@@ -213,7 +244,7 @@ fn test_obj_new() {
 #[test]
 fn test_load_str() {
     let m = Mrb::new();
-    let mut v = m.load("def inc(a) a+1 end; return inc(2)");
+    let mut v = m.load("def inc(a) a+1 end;\n a = 3;inc(a)");
     assert!(v.is_nil());
     m.call(&v,"to_s");
     m.close();
