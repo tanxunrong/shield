@@ -28,3 +28,4 @@ mruby/
 target/
 Cargo.lock
 libmruby.a
+core

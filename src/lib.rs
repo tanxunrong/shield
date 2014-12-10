@@ -98,7 +98,7 @@ impl Mrb {
         let mut h = self.clzs.borrow_mut();
         let clzname = String::from_str(name);
         if h.get(&clzname).is_some() {
-                return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()})
+                return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()});
         }
         let mclz = unsafe { 
             mruby::mrb_class_get(self.get_state(), 
@@ -149,9 +149,11 @@ impl Mrb {
     }
 
     pub fn def_class(&self,name:&str,outer:&str) -> Option<Class> {
-        if self.get_class(name).is_some() {
-            panic!("class already have");
+
+        if self.clzs.borrow().get(&String::from_str(name)).is_some() {
+            panic!("class defined before");
         }
+
         match self.get_class(outer) {
             Some(out_clz) => {
                 let clz = unsafe {
@@ -169,6 +171,7 @@ impl Mrb {
                 None
             }
         }
+
     }
 
     pub fn call(&self,v:&mrb_value,method:&str) {
@@ -196,6 +199,7 @@ impl Class {
         }
     }
 }
+
 /*
 #[unsafe_destructor]
 impl Drop for RefCell<*mut mrb_state> {
@@ -237,14 +241,14 @@ fn test_obj_new() {
     let arr_clz = m.get_class("Array").unwrap();
     let v = arr_clz.new();
     m.inspect(&v);
-    assert!(v.is_nil());
+    assert!(!v.is_nil());
     m.close();
 }
 
 #[test]
 fn test_load_str() {
     let m = Mrb::new();
-    let mut v = m.load("def inc(a) a+1 end;\n a = 3;inc(a)");
+    let mut v = m.load("1..3.each do |i| puts i end");
     assert!(v.is_nil());
     m.call(&v,"to_s");
     m.close();
