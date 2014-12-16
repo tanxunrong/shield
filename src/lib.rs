@@ -174,6 +174,24 @@ impl Mrb {
 
     }
 
+    pub fn def_mod(&self,name:&str) -> Option<Class> {
+
+        if self.clzs.borrow().get(&String::from_str(name)).is_some() {
+            panic!("module defined before");
+        }
+
+        let clz = unsafe {
+            mruby::mrb_define_module(self.get_state(),
+                         name.as_ptr() as *const libc::c_char
+                         )
+        };
+        let class = Class{mrb:self.mrb.clone(),clz:Rc::new(RefCell::new(clz))};
+        let mut h = self.clzs.borrow_mut();
+        h.insert(String::from_str(name),class.clz.clone());
+        Some(class)
+
+    }
+
     pub fn call(&self,v:&mrb_value,method:&str) {
         unsafe {
             mruby::mrb_funcall(self.get_state(),*v,
@@ -258,6 +276,14 @@ fn test_load_str() {
 fn test_def_class() {
     let m = Mrb::new();
     let hello = m.def_class("Hello","Object");
+    assert!(hello.is_some());
+    m.close();
+}
+
+#[test]
+fn test_def_mod() {
+    let m = Mrb::new();
+    let hello = m.def_mod("Hello");
     assert!(hello.is_some());
     m.close();
 }
