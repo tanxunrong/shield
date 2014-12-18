@@ -8,5 +8,5 @@ build = "build.rs"
 name = "mruby"
 path = "src/lib.rs"
 
-[dependencies]
+[build-dependencies.gcc]
 gcc = "*"
