@@ -145,25 +145,6 @@ impl Mrb {
         unsafe {
             let state = self.get_state();
             mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char)
-
-                /*
-                   let state = self.get_state();
-                   let sjmp = (*state).jmp;
-                   if sjmp as uint != 0 {
-                   panic!("jmp not null");
-                   }
-                   let jmp = libc::malloc(std::mem::size_of::<mruby::jmp_buf>() as libc::size_t) as *mut mruby::jmp_buf;
-                   if mruby::setjmp(*jmp) as int == 0 {
-                   (*state).jmp = jmp;
-                   let val = mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char);
-                   (*state).jmp = 0 as *mut _;
-                   return val;
-                   } else {
-                   mruby::mrb_print_error(state);
-                   panic!("fail to setjmp");
-                   }
-                   libc::free(jmp as *mut _);
-                   */
         }
     }
 
