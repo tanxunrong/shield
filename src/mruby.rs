@@ -366,6 +366,7 @@ pub struct Struct_RException {
 pub type jmp_buf = [::libc::c_long, ..8u];
 pub type Struct_mrb_jmpbuf = jmp_buf;
 
+#[link(name = "mrb")]
 #[link(name = "mruby")]
 extern "C" {
 
@@ -670,6 +671,10 @@ extern "C" {
                                argc: mrb_int, argv: *const mrb_value,
                                fmt: *const ::libc::c_char, ...);
     pub fn mrb_f_raise(arg1: *mut mrb_state, arg2: mrb_value) -> mrb_value;
+
+    pub fn mrb_const_defined(arg1: *mut mrb_state, arg2: mrb_value, arg3: mrb_sym) -> mrb_bool;
+
+    pub fn wrap_mrb_obj_value(arg1: *mut ::libc::c_void) -> mrb_value;
 }
 
 impl mrb_value {

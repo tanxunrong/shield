@@ -74,14 +74,27 @@ impl Mrb {
         let mrb = unsafe {
             mrb_open()
         };
-        let state = unsafe { *mrb };
+        let state = mrb.clone();
         let clzs : RefCell<HashMap<String,MrbClass>> = RefCell::new(HashMap::new());
         let m = Mrb{ mrb:Rc::new(RefCell::new(mrb)),clzs:clzs };
-        m.clzs.borrow_mut().insert(String::from_str("Object"),Rc::new(RefCell::new(state.object_class)));
-        m.clzs.borrow_mut().insert(String::from_str("Class"),Rc::new(RefCell::new(state.class_class)));
-        m.clzs.borrow_mut().insert(String::from_str("String"),Rc::new(RefCell::new(state.string_class)));
-        m.clzs.borrow_mut().insert(String::from_str("Array"),Rc::new(RefCell::new(state.array_class)));
-        m.clzs.borrow_mut().insert(String::from_str("Hash"),Rc::new(RefCell::new(state.hash_class)));
+        m.clzs.borrow_mut().insert(String::from_str("Object"),Rc::new(RefCell::new(unsafe {(*state).object_class} )));
+        m.clzs.borrow_mut().insert(String::from_str("Class"),Rc::new(RefCell::new(
+                    unsafe {
+                    (*state).class_class
+                    })));
+        m.clzs.borrow_mut().insert(String::from_str("String"),Rc::new(RefCell::new(
+                    unsafe {
+                    (*state).string_class
+                    })));
+        m.clzs.borrow_mut().insert(String::from_str("Array"),Rc::new(RefCell::new(
+                    unsafe {
+                    (*state).array_class
+                    })));
+        m.clzs.borrow_mut().insert(String::from_str("Hash"),Rc::new(RefCell::new(
+                    unsafe {
+                    (*state).hash_class
+                    })));
+        unsafe { std::mem::forget(state); } 
         m
     }
 
@@ -98,12 +111,27 @@ impl Mrb {
         let mut h = self.clzs.borrow_mut();
         let clzname = String::from_str(name);
         if h.get(&clzname).is_some() {
-                return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()});
+            return Some(Class{mrb:self.mrb.clone(),clz:h.get(&clzname).unwrap().clone()});
         }
-        let mclz = unsafe { 
-            mruby::mrb_class_get(self.get_state(), 
-                                 name.as_ptr() as *const libc::c_char) 
+        let state = self.get_state().clone() ;
+        let defined = unsafe { 
+            mruby::mrb_const_defined(self.get_state(),
+                                                        mruby::wrap_mrb_obj_value((*state).object_class as *mut libc::c_void),
+                                                        mruby::mrb_intern_cstr(self.get_state(),
+                                                        name.as_ptr() as *const libc::c_char)) };
+        let mclz = match defined {
+            0 => unsafe {
+                mruby::mrb_define_class(self.get_state(),
+                                                  name.as_ptr() as *const libc::c_char,
+                                                  (*state).object_class)
+            },
+            _ => unsafe { 
+                mruby::mrb_class_get(self.get_state(), 
+                                     name.as_ptr() as *const libc::c_char) 
+            }
         };
+
+        unsafe { std::mem::forget(state); }
         if mclz.is_null() {
             None
         } else {
@@ -118,24 +146,24 @@ impl Mrb {
             let state = self.get_state();
             mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char)
 
-            /*
-            let state = self.get_state();
-            let sjmp = (*state).jmp;
-            if sjmp as uint != 0 {
-                panic!("jmp not null");
-            }
-            let jmp = libc::malloc(std::mem::size_of::<mruby::jmp_buf>() as libc::size_t) as *mut mruby::jmp_buf;
-            if mruby::setjmp(*jmp) as int == 0 {
-                (*state).jmp = jmp;
-                let val = mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char);
-                (*state).jmp = 0 as *mut _;
-                return val;
-            } else {
-                mruby::mrb_print_error(state);
-                panic!("fail to setjmp");
-            }
-            libc::free(jmp as *mut _);
-            */
+                /*
+                   let state = self.get_state();
+                   let sjmp = (*state).jmp;
+                   if sjmp as uint != 0 {
+                   panic!("jmp not null");
+                   }
+                   let jmp = libc::malloc(std::mem::size_of::<mruby::jmp_buf>() as libc::size_t) as *mut mruby::jmp_buf;
+                   if mruby::setjmp(*jmp) as int == 0 {
+                   (*state).jmp = jmp;
+                   let val = mruby::mrb_load_string(state,code.as_ptr() as *const libc::c_char);
+                   (*state).jmp = 0 as *mut _;
+                   return val;
+                   } else {
+                   mruby::mrb_print_error(state);
+                   panic!("fail to setjmp");
+                   }
+                   libc::free(jmp as *mut _);
+                   */
         }
     }
 
@@ -143,8 +171,8 @@ impl Mrb {
         unsafe {
             let state = self.get_state();
             mruby::mrb_load_string_cxt(state,
-                                   code.as_ptr() as *const libc::c_char,
-                                   ctx.ctx)
+                                       code.as_ptr() as *const libc::c_char,
+                                       ctx.ctx)
         }
     }
 
@@ -154,23 +182,7 @@ impl Mrb {
             panic!("class defined before");
         }
 
-        match self.get_class(outer) {
-            Some(out_clz) => {
-                let clz = unsafe {
-                    mruby::mrb_define_class(self.get_state(),
-                                 name.as_ptr() as *const libc::c_char,
-                                 out_clz.get_class()
-                                 )
-                };
-                let class = Class{mrb:self.mrb.clone(),clz:Rc::new(RefCell::new(clz))};
-                let mut h = self.clzs.borrow_mut();
-                h.insert(String::from_str(name),class.clz.clone());
-                Some(class)
-            },
-            None => {
-                None
-            }
-        }
+        self.get_class(name)
 
     }
 
@@ -182,8 +194,8 @@ impl Mrb {
 
         let clz = unsafe {
             mruby::mrb_define_module(self.get_state(),
-                         name.as_ptr() as *const libc::c_char
-                         )
+            name.as_ptr() as *const libc::c_char
+            )
         };
         let class = Class{mrb:self.mrb.clone(),clz:Rc::new(RefCell::new(clz))};
         let mut h = self.clzs.borrow_mut();
@@ -192,17 +204,19 @@ impl Mrb {
 
     }
 
+    /*
     pub fn call(&self,v:&mrb_value,method:&str) {
         unsafe {
             mruby::mrb_funcall(self.get_state(),*v,
-                                 method.as_ptr() as *const libc::c_char,0 as mrb_int);
+            method.as_ptr() as *const libc::c_char,0 as mrb_int);
         }
     }
 
     pub fn inspect(&self,v:&mrb_value) {
         self.call(v,"to_s");
     }
-                                 
+    */
+
     pub fn new_context(&self) -> Context {
         let ctx = unsafe { mruby::mrbc_context_new(self.get_state()) };
         Context { mrb:self.mrb.clone(),ctx:ctx }
@@ -221,15 +235,15 @@ impl Class {
 /*
 #[unsafe_destructor]
 impl Drop for RefCell<*mut mrb_state> {
-    fn drop(&mut self) {
-        let mrb = *self.borrow_mut();
-        if !mrb.is_null() {
-            println!("mrb pointer null");
-            unsafe {
-                mrb_close(mrb);
-            }
-        }
-    }
+fn drop(&mut self) {
+let mrb = *self.borrow_mut();
+if !mrb.is_null() {
+println!("mrb pointer null");
+unsafe {
+mrb_close(mrb);
+}
+}
+}
 }
 */
 
@@ -258,7 +272,6 @@ fn test_obj_new() {
     let m = Mrb::new();
     let arr_clz = m.get_class("Array").unwrap();
     let v = arr_clz.new();
-    m.inspect(&v);
     assert!(!v.is_nil());
     m.close();
 }
@@ -268,7 +281,6 @@ fn test_load_str() {
     let m = Mrb::new();
     let mut v = m.load("1..3.each do |i| puts i end");
     assert!(v.is_nil());
-    m.call(&v,"to_s");
     m.close();
 }
 
