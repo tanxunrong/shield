@@ -190,46 +190,53 @@ fn test_mrb_open() {
 #[test]
 fn test_get_class() {
     let m = Mrb::new();
-    let arr_clz = m.get_class("Array").unwrap();
-    assert!(m.get_class("Class").is_some());
-    assert!(m.get_class("Object").is_some());
-    assert!(m.get_class("Hash").is_some());
-    assert!(m.get_class("String").is_some());
+    {
+        let arr_clz = m.get_class("Array").unwrap();
+        assert!(m.get_class("Class").is_some());
+        assert!(m.get_class("Object").is_some());
+        assert!(m.get_class("Hash").is_some());
+        assert!(m.get_class("String").is_some());
+        assert!(m.get_class("String").is_some());
+        assert!(rc::strong_count(&arr_clz.mrb) == 2);
+    }
     m.close();
-    assert!(m.get_class("String").is_some());
-    assert!(rc::strong_count(&arr_clz.mrb) == 2);
 }
 
 
 #[test]
 fn test_obj_new() {
     let m = Mrb::new();
-    let arr_clz = m.get_class("Array").unwrap();
-    let v = arr_clz.new();
-    assert!(!v.is_nil());
+    { 
+        let arr_clz = m.get_class("Array").unwrap();
+        let v = arr_clz.new();
+        assert!(!v.is_nil());
+    }
     m.close();
 }
 
 #[test]
 fn test_load_str() {
     let m = Mrb::new();
-    let mut v = m.load("1..3.each do |i| puts i end");
-    assert!(v.is_nil());
+    let mut v = m.load("a = 1;");
     m.close();
 }
 
 #[test]
 fn test_def_class() {
     let m = Mrb::new();
-    let hello = m.def_class("Hello","Object");
-    assert!(hello.is_some());
+    {
+        let hello = m.def_class("Hello","Object");
+        assert!(hello.is_some());
+    }
     m.close();
 }
 
 #[test]
 fn test_def_mod() {
     let m = Mrb::new();
-    let hello = m.def_mod("Hello");
-    assert!(hello.is_some());
+    {
+        let hello = m.def_mod("Hello");
+        assert!(hello.is_some());
+    }
     m.close();
 }
