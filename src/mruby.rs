@@ -4,6 +4,10 @@
 use libc;
 use libc::{int32_t,uint32_t,uint8_t,size_t,FILE,uint16_t};
 use std::fmt;
+use value;
+use value::Value;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub type mrb_sym = uint32_t;
 pub type mrb_bool = uint8_t;
@@ -66,11 +70,13 @@ pub struct Struct_RFiber {
     pub cxt: *mut Struct_mrb_context,
 }
 #[repr(C)]
+#[deriving(Clone)]
 pub struct Struct_mrb_value {
     pub value: Union_Unnamed1,
     pub tt: Enum_mrb_vtype,
 }
 #[repr(C)]
+#[deriving(Clone)]
 pub struct Union_Unnamed1 {
     pub data: [u64, ..1u],
 }
@@ -692,6 +698,17 @@ extern "C" {
     pub fn  wrap_mrb_undef_value() -> mrb_value;
 
     pub fn  wrap_mrb_cptr_value(state : *mut mrb_state,p: *mut libc::c_void) -> mrb_value;
+
+    pub fn wrap_mrb_ptr (arg1 : mrb_value) -> *mut libc::c_void;
+
+    pub fn wrap_mrb_float (arg1 : mrb_value) -> mrb_float;
+
+    pub fn wrap_mrb_fixnum (arg1 : mrb_value) -> mrb_int;
+
+    pub fn wrap_mrb_symbol (arg1 : mrb_value) -> mrb_sym;
+
+    pub fn wrap_mrb_type (arg1 : mrb_value) -> Enum_mrb_vtype;
+
 }
 
 impl mrb_value {
@@ -702,43 +719,38 @@ impl mrb_value {
         }
         return false;
     }
-}
 
-impl fmt::Show for mrb_value {
-    fn fmt(&self,ft:&mut fmt::Formatter) -> Result<(),fmt::Error> {
-        if self.tt == MRB_TT_FIXNUM {
-            let fixnum = self.value.ci();
-            return fixnum.fmt(ft);
-        }
-        else if self.is_nil() {
-            return ft.pad("nil");
-        }
-        else if self.tt == MRB_TT_FALSE {
-            return ft.pad("false");
-        }
-        else if self.tt == MRB_TT_TRUE {
-            return ft.pad("true");
-        }
-        else if self.tt == MRB_TT_SYMBOL {
-            return self.value.csym().fmt(ft);
-        }
-        else if self.tt == MRB_TT_UNDEF {
-            return ft.pad("undefined");
-        }
-        else if self.tt == MRB_TT_FLOAT {
-            return self.value.cf().fmt(ft);
-        }
-        else if self.tt == MRB_TT_CPTR {
-            return ft.pad("cptr");
-        }
-        else if self.tt == MRB_TT_PROC {
-            return ft.pad("proc");
-        }
-        else if self.tt == MRB_TT_OBJECT {
-            return ft.pad("obj");
-        }
-        else {
-            return ft.pad("unknown");
+    pub fn to_val(&self) -> Value {
+        match self.tt {
+            MRB_TT_FALSE => { 
+                let i = unsafe { wrap_mrb_fixnum(self.clone()) };
+                if i == 0 {
+                    Value::Nil
+                } else { 
+                    Value::Bool(false) 
+                } 
+            },
+            MRB_TT_TRUE => { Value::Bool(true) },
+            MRB_TT_UNDEF => { Value::Undef },
+            MRB_TT_FIXNUM => {
+                let i = unsafe { wrap_mrb_fixnum(self.clone()) };
+                Value::Int(i)
+            },
+            MRB_TT_FLOAT => {
+                let f = unsafe { wrap_mrb_float(self.clone()) };
+                Value::Float(f)
+            },
+            MRB_TT_SYMBOL => { 
+                let sym = unsafe { wrap_mrb_symbol(self.clone()) };
+                Value::Symbol(sym)
+            },
+            MRB_TT_CPTR => { 
+                let ptr = unsafe { wrap_mrb_ptr(self.clone()) };
+                Value::Cptr(Rc::new(RefCell::new(ptr)))
+            },
+            _ => { 
+                panic!("invalid mruby type")
+            }
         }
     }
 }

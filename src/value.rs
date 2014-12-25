@@ -2,6 +2,7 @@
 use libc;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::fmt;
 
 use state::{Mrb,HasState};
 use mruby;
@@ -18,6 +19,20 @@ pub enum Value {
     Symbol(u32),
     Cptr(Pointer),
     Bool(bool)
+}
+
+impl fmt::Show for Value {
+    fn fmt(&self, ft : &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Value::Cptr(ref ptr) => { ft.pad("Cptr") },
+            &Value::Nil => { ft.pad("Nil") },
+            &Value::Undef => { ft.pad("Undefined") },
+            &Value::Int(i) => { ft.pad(format!("Fixnum({})",i).as_slice()) },
+            &Value::Float(i) => { ft.pad(format!("Float({})",i).as_slice()) },
+            &Value::Symbol(i) => { ft.pad(format!("Symbol({})",i).as_slice()) },
+            &Value::Bool(i) => { ft.pad(format!("Bool({})",i).as_slice()) }
+        }
+    }
 }
 
 impl Value {
@@ -69,21 +84,31 @@ impl Value {
 
 }
 
+
+
 #[test]
 fn test_value() {
     let mut v1 = Value::Bool(true);
-    v1.to_mrb(None);
+    assert!(v1.to_mrb(None).to_val() == v1);
+
     v1 = Value::Bool(false);
-    v1.to_mrb(None);
+    assert!(v1.to_mrb(None).to_val() == v1);
+
     v1 = Value::Int(32);
-    v1.to_mrb(None);
+    assert!(v1.to_mrb(None).to_val() == v1);
+
     v1 = Value::Symbol(239);
-    v1.to_mrb(None);
+    assert!(v1.to_mrb(None).to_val() == v1);
+
     v1 = Value::Nil;
-    v1.to_mrb(None);
+    assert!(v1.to_mrb(None).to_val() == v1);
+
     v1 = Value::Undef;
-    v1.to_mrb(None);
+    assert!(v1.to_mrb(None).to_val() == v1);
+
     let m = Mrb::new();
     v1 = Value::Float(3.141592643);
-    v1.to_mrb(Some(m.get_state()));
+    assert!(v1.to_mrb(Some(m.get_state())).to_val() == v1);
+
+    m.close();
 }
